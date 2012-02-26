@@ -26,7 +26,7 @@ var rootpath = process.cwd() + '/',
 // Local App Variables
 var path = rootpath,
   theme = 'default',
-  port = process.env.PORT || 3000,
+  port = process.env.VCAP_APP_PORT || process.env.PORT || 3000,
   version = "0.2.3";
 
 /**
@@ -49,10 +49,41 @@ var app, exports;
  */
 function bootApplication(next) {
 
+  if(process.env.VCAP_SERVICES){
+  var env = JSON.parse(process.env.VCAP_SERVICES);
+  var mongo = env['mongodb-1.8'][0]['credentials'];
+}
+else{
+  var mongo = {
+    "hostname":"localhost",
+    "port":27017,
+    "username":"",
+    "password":"",
+    "name":"",
+    "db":"db"
+  }
+}
+
+var generate_mongo_url = function(obj){
+  obj.hostname = (obj.hostname || 'localhost');
+  obj.port = (obj.port || 27017);
+  obj.db = (obj.db || 'test');
+
+  if(obj.username && obj.password){
+    return "mongodb://" + obj.username + ":" + obj.password + "@" + obj.hostname + ":" + obj.port + "/" + obj.db;
+  }
+  else{
+    return "mongodb://" + obj.hostname + ":" + obj.port + "/" + obj.db;
+  }
+}
+
+var mongourl = generate_mongo_url(mongo);
+
   app.use(express.methodOverride());
   app.use(express.cookieParser());
   app.use(express.responseTime());
-  app.use(express.session({ secret: 'calipso', store: mongoStore({ url: app.set('db-uri') }) }));
+  app.use(express.session({ secret: 'calipso', store: mongoStore({ url: mongourl }) }));
+//  app.use(express.session({ secret: 'calipso', store: mongoStore({ url: app.set('db-uri') }) }));
 
   // Default Theme
   calipso.defaultTheme = require(path + '/conf/configuration.js').getDefaultTheme();
@@ -134,7 +165,7 @@ exports.boot = function (next) {
     } else {
 
       // Load application configuration
-      theme = app.set('config').theme;
+      //theme = app.set('config').theme;
       // Bootstrap application
       bootApplication(function () {
         next(app);
